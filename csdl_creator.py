@@ -93,6 +93,7 @@ def create_navigation(property_name, schema_name="TBD", description=None, longDe
     if collection:
         navegation_entry = etree.Element("NavigationProperty",\
             attrib={"Name": property_name, "Type": "Collection({}.{})".format(schema_name, schema_name), "Nullable": "false"})
+        etree.SubElement(navegation_entry, "Annotation", attrib={"Term": "Redfish.Required"})
     else:
         navegation_entry = etree.Element("NavigationProperty",\
             attrib={"Name": property_name, "Type": "{}.{}".format(schema_name, schema_name), "Nullable": "false"})
@@ -107,7 +108,7 @@ def create_navigation(property_name, schema_name="TBD", description=None, longDe
     return navegation_entry
 
 
-def create_property(property_name, property_type, readonly=True, required=False, type=None, description=None, longDescription=None, items=None):
+def create_property(property_name, property_type, readonly=True, required=False, requiredOnCreate=False, type=None, description=None, longDescription=None, items=None):
     """Creates a base property to build from"""
     description = description if description else "TBD"
     longDescription = longDescription if longDescription else "TBD"
@@ -121,6 +122,8 @@ def create_property(property_name, property_type, readonly=True, required=False,
     etree.SubElement(added_property, "Annotation", attrib={"Term": "OData.LongDescription", "String": longDescription})
     if required:
         etree.SubElement(added_property, "Annotation", attrib={"Term": "Redfish.Required"})
+    if requiredOnCreate:
+        etree.SubElement(added_property, "Annotation", attrib={"Term": "Redfish.RequiredOnCreate"})
 
     return added_property
 
@@ -170,7 +173,10 @@ def create_property_w_type(property_name, value=None, my_type=None, **kwargs):
         my_type = kwargs['items']['type'][0]
         entry = create_property(property_name, "Collection({})".format(type_conversion.get(my_type, 'TBD')), **kwargs)
     elif my_type in type_conversion:
-        entry = create_property(property_name, type_conversion[my_type], **kwargs)
+        if kwargs.get('type') is None:
+            entry = create_property(property_name, type_conversion[my_type], **kwargs)
+        else:
+            entry = create_property(property_name, kwargs.get('type'), **kwargs)
     else:
         entry = create_property(property_name, "TBD", **kwargs)
 
@@ -239,6 +245,8 @@ class CsdlFile:
             return
         if "required" in descriptors:
             kwargs["required"] = True
+        if "requiredOnCreate" in descriptors:
+            kwargs["requiredOnCreate"] = True
         if "readonly" in descriptors:
             kwargs["readonly"] = False
         if "type" in descriptors:
